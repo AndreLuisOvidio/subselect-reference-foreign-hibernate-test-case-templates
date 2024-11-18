@@ -15,6 +15,8 @@
  */
 package org.hibernate.bugs;
 
+import org.hibernate.bugs.entities.TypeA;
+import org.hibernate.bugs.entities.TypeB;
 import org.hibernate.cfg.AvailableSettings;
 
 import org.hibernate.testing.orm.junit.DomainModel;
@@ -23,6 +25,9 @@ import org.hibernate.testing.orm.junit.SessionFactory;
 import org.hibernate.testing.orm.junit.SessionFactoryScope;
 import org.hibernate.testing.orm.junit.Setting;
 import org.junit.jupiter.api.Test;
+
+import jakarta.persistence.Query;
+import jakarta.persistence.Tuple;
 
 /**
  * This template demonstrates how to develop a test case for Hibernate ORM, using its built-in unit test framework.
@@ -35,9 +40,8 @@ import org.junit.jupiter.api.Test;
  */
 @DomainModel(
 		annotatedClasses = {
-				// Add your entities here.
-				// Foo.class,
-				// Bar.class
+				 TypeA.class,
+				 TypeB.class
 		},
 		// If you use *.hbm.xml mappings, instead of annotations, add the mappings here.
 		xmlMappings = {
@@ -52,7 +56,7 @@ import org.junit.jupiter.api.Test;
 				@Setting(name = AvailableSettings.SHOW_SQL, value = "true"),
 				@Setting(name = AvailableSettings.FORMAT_SQL, value = "true"),
 				// @Setting( name = AvailableSettings.GENERATE_STATISTICS, value = "true" ),
-
+				@Setting(name = AvailableSettings.STATEMENT_INSPECTOR, value = "org.hibernate.bugs.SQLValidationInspector")
 				// Add your own settings that are a part of your quarkus configuration:
 				// @Setting( name = AvailableSettings.SOME_CONFIGURATION_PROPERTY, value = "SOME_VALUE" ),
 		}
@@ -63,8 +67,15 @@ class ORMUnitTestCase {
 	// Add your tests, using standard JUnit 5.
 	@Test
 	void hhh123Test(SessionFactoryScope scope) throws Exception {
+		SQLValidationInspector.setNeedContains("select ta1_0.id");
+
 		scope.inTransaction( session -> {
-			// Do stuff...
+			String hql = "select (select a.id from TypeA ignore) as id1, a.id as id2 from TypeB b inner join b.typeA a group by a.id";
+			Query resuls = session.createQuery(hql, Tuple.class);
+			resuls.getResultList();
+			if (!SQLValidationInspector.hasContainsSql()) {
+				throw new AssertionError("SQL with 'tb1_0.typeA_id' instance of 'ta1_0.id'");
+			}
 		} );
 	}
 }

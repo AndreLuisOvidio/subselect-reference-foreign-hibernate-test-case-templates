@@ -15,8 +15,12 @@
  */
 package org.hibernate.bugs;
 
+import javax.persistence.Query;
+
 import org.hibernate.Session;
 import org.hibernate.Transaction;
+import org.hibernate.bugs.entities.TypeA;
+import org.hibernate.bugs.entities.TypeB;
 import org.hibernate.cfg.AvailableSettings;
 import org.hibernate.cfg.Configuration;
 import org.hibernate.testing.junit4.BaseCoreFunctionalTestCase;
@@ -37,8 +41,8 @@ public class ORMUnitTestCase extends BaseCoreFunctionalTestCase {
 	@Override
 	protected Class[] getAnnotatedClasses() {
 		return new Class[] {
-//				Foo.class,
-//				Bar.class
+				TypeA.class,
+				TypeB.class
 		};
 	}
 
@@ -63,16 +67,25 @@ public class ORMUnitTestCase extends BaseCoreFunctionalTestCase {
 
 		configuration.setProperty( AvailableSettings.SHOW_SQL, Boolean.TRUE.toString() );
 		configuration.setProperty( AvailableSettings.FORMAT_SQL, Boolean.TRUE.toString() );
+		configuration.setProperty( AvailableSettings.STATEMENT_INSPECTOR, "org.hibernate.bugs.SQLValidationInspector" );
 		//configuration.setProperty( AvailableSettings.GENERATE_STATISTICS, "true" );
 	}
 
 	// Add your tests, using standard JUnit.
 	@Test
 	public void hhh123Test() throws Exception {
+		SQLValidationInspector.setNeedContains("select typea1_.id");
 		// BaseCoreFunctionalTestCase automatically creates the SessionFactory and provides the Session.
 		Session s = openSession();
 		Transaction tx = s.beginTransaction();
-		// Do stuff...
+
+		String hql = "select (select a.id from TypeA ignore) as id1, a.id as id2 from TypeB b inner join b.typeA a group by a.id";
+		Query resuls = session.createQuery(hql);
+		resuls.getResultList();
+		if (!SQLValidationInspector.hasContainsSql()) {
+			throw new AssertionError("SQL with 'typeA_id' instance of 'typea1_.id'");
+		}
+
 		tx.commit();
 		s.close();
 	}
